@@ -2,6 +2,9 @@
   <div class="form-layout">
     <section class="card form-card">
       <h3 style="padding: 1.1rem 1.3rem .2rem;">Datos del comprobante</h3>
+      <div v-if="proximoNumero" style="padding: 0 1.3rem .8rem; color: var(--color-forest-deep); font-weight: 600; background: var(--color-surface-raised); padding: 0.8rem 1.3rem; border-radius: var(--radius-sm); margin: 0 1.3rem 0.8rem;">
+        📋 Se emitirá como: <span style="font-family: monospace; background: white; padding: .3rem .5rem; border-radius: 3px; font-weight: 700;">{{ proximoNumero.serie }}-{{ String(proximoNumero.numero).padStart(6, '0') }}</span>
+      </div>
       <form id="form-venta" class="form-grid" @submit.prevent="registrar" style="padding: 0 1.3rem 1.3rem;">
         <div class="field"><label>Cliente</label>
           <select v-model="cabecera.clienteId">
@@ -10,14 +13,12 @@
           </select>
         </div>
         <div class="field"><label>Tipo de comprobante</label>
-          <select v-model="cabecera.tipoComprobante" required>
+          <select v-model="cabecera.tipoComprobante" required @change="cargarProximoNumero">
             <option value="01">Factura</option>
             <option value="03">Boleta</option>
             <option value="07">Nota de crédito</option>
           </select>
         </div>
-        <div class="field"><label>Serie</label><input v-model.trim="cabecera.serie" required placeholder="B001" /></div>
-        <div class="field"><label>Número</label><input v-model.trim="cabecera.numero" required placeholder="000123" /></div>
         <div class="field"><label>Fecha de emisión</label><input v-model="cabecera.fechaEmision" type="date" required /></div>
         <div class="field"><label>Forma de pago</label>
           <select v-model="cabecera.formaPago"><option value="Contado">Contado</option><option value="Crédito">Crédito</option></select>
@@ -85,9 +86,10 @@ const clientes = ref([]);
 const productos = ref([]);
 const items = ref([]);
 const guardando = ref(false);
+const proximoNumero = ref(null);
 
 const cabecera = reactive({
-  clienteId: '', tipoComprobante: '03', serie: '', numero: '',
+  clienteId: '', tipoComprobante: '03',
   fechaEmision: new Date().toISOString().slice(0, 10), formaPago: 'Contado', motivoNota: ''
 });
 const itemActual = reactive({ productoId: '', cantidad: 1, precioUnitarioConIgv: 0 });
@@ -127,6 +129,16 @@ async function registrar() {
   }
 }
 
+async function cargarProximoNumero() {
+  try {
+    const { data } = await ventasApi.obtenerProximoNumero(cabecera.tipoComprobante);
+    proximoNumero.value = data.data;
+  } catch (err) {
+    console.error('Error al obtener próximo número:', err);
+    proximoNumero.value = null;
+  }
+}
+
 onMounted(async () => {
   const [resCli, resProd] = await Promise.all([
     proveedoresApi.listar({ tipoPersona: 'CLIENTE', limit: 100 }),
@@ -134,6 +146,9 @@ onMounted(async () => {
   ]);
   clientes.value = resCli.data.data.rows;
   productos.value = resProd.data.data.rows;
+  
+  // Cargar próximo número para el tipo de comprobante por defecto
+  await cargarProximoNumero();
 });
 </script>
 
