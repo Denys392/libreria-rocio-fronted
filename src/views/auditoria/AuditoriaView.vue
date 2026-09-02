@@ -19,29 +19,30 @@
             <th>Procesado</th>
             <th>Inicio</th>
             <th>Fin</th>
+            <th>Demora</th>
             <th>Error</th>
             <th>API / Ruta</th>
           </tr>
         </thead>
-        <tbody v-if="cargando"><tr v-for="n in 8" :key="n" class="skeleton-row"><td colspan="10"><div class="skeleton-bar"></div></td></tr></tbody>
+        <tbody v-if="cargando"><tr v-for="n in 8" :key="n" class="skeleton-row"><td colspan="11"><div class="skeleton-bar"></div></td></tr></tbody>
         <tbody v-else-if="registros.length">
           <tr v-for="r in registros" :key="r.audit_key_api">
             <td class="mono small">{{ r.audit_key_api }}</td>
-            <td class="comprobante">{{ r.related_entity_id || 'N/A' }}</td>
+            <td class="comprobante">{{ r.numero_comprobante || (r.related_entity_id ? '#' + r.related_entity_id : 'N/A') }}</td>
             <td><span class="badge badge-entity">/{{ r.related_entity?.toUpperCase() || 'N/A' }}</span></td>
             <td>{{ r.usuario_nombre || 'Anónimo' }}</td>
             <td>
-              <span class="badge" :class="r.status_category === 'EXITO' ? 'badge-ok' : 'badge-danger'">
-                {{ r.status_category === 'EXITO' ? 'EXITO' : 'ERROR' }}
-              </span>
+              <span class="badge" :class="estadoBadge(r)">{{ estadoTexto(r) }}</span>
             </td>
             <td>
-              <span class="badge" :class="r.successful_processing_ind === 'S' ? 'badge-ok' : 'badge-warning'">
+              <span v-if="r.api_stop_dt" class="badge" :class="r.successful_processing_ind === 'S' ? 'badge-ok' : 'badge-warning'">
                 {{ r.successful_processing_ind === 'S' ? 'SÍ' : 'NO' }}
               </span>
+              <span v-else>—</span>
             </td>
             <td class="small">{{ formatoFechaHora(r.api_start_dt) }}</td>
             <td class="small">{{ formatoFechaHora(r.api_stop_dt) }}</td>
+            <td class="small mono">{{ formatoDuracion(r.api_start_dt, r.api_stop_dt) }}</td>
             <td class="error-cell" :title="r.error_message">{{ r.error_message || '—' }}</td>
             <td class="mono url-cell" :title="r.url">{{ r.url }}</td>
           </tr>
@@ -57,7 +58,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { auditoriaApi } from '../../api/auditoria';
 import { useNotificationStore } from '../../store/notifications';
-import { formatoFechaHora } from '../../utils/format';
+import { formatoFechaHora, formatoDuracion } from '../../utils/format';
 import PaginationBar from '../../components/PaginationBar.vue';
 import EmptyState from '../../components/EmptyState.vue';
 
@@ -66,6 +67,16 @@ const registros = ref([]);
 const total = ref(0);
 const cargando = ref(true);
 const filtros = reactive({ page: 1, limit: 15, desde: '', hasta: '' });
+
+// Un registro sin api_stop_dt es un comprobante enviado que aún espera veredicto de SUNAT.
+function estadoTexto(r) {
+  if (!r.api_stop_dt) return 'EN PROCESO';
+  return r.status_category === 'EXITO' ? 'EXITO' : 'ERROR';
+}
+function estadoBadge(r) {
+  if (!r.api_stop_dt) return 'badge-warning';
+  return r.status_category === 'EXITO' ? 'badge-ok' : 'badge-danger';
+}
 
 async function cargar() {
   cargando.value = true;
