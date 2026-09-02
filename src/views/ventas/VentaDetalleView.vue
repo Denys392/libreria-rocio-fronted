@@ -30,10 +30,10 @@
         <button class="btn btn-ghost btn-sm" @click="descargarXml" :disabled="descargando.xml">
           {{ descargando.xml ? 'Descargando…' : '⬇ Descargar XML' }}
         </button>
-        <button 
-          v-if="['PENDIENTE', 'ERROR'].includes(venta.estado_sunat)"
-          class="btn btn-primary btn-sm" 
-          @click="sincronizar" 
+        <button
+          v-if="venta.document_id"
+          class="btn btn-primary btn-sm"
+          @click="sincronizar"
           :disabled="sincronizando">
           {{ sincronizando ? '⏳ Sincronizando…' : '🔄 Sincronizar SUNAT' }}
         </button>
@@ -106,7 +106,7 @@ async function descargarPdf() {
   try {
     await documentosApi.descargarPdfVenta(venta.value.venta_id, venta.value.file_name);
   } catch (err) {
-    notify.error(err.response?.data?.message || 'Esta venta no tiene PDF guardado en el servidor');
+    notify.error(err.mensajeLegible || 'No se pudo descargar el PDF de esta venta');
   } finally { descargando.pdf = false; }
 }
 
@@ -115,7 +115,7 @@ async function descargarXml() {
   try {
     await documentosApi.descargarXmlVenta(venta.value.venta_id, venta.value.file_name);
   } catch (err) {
-    notify.error(err.response?.data?.message || 'Esta venta no tiene XML guardado en el servidor');
+    notify.error(err.mensajeLegible || 'No se pudo descargar el XML de esta venta');
   } finally { descargando.xml = false; }
 }
 
