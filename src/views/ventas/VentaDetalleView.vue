@@ -30,7 +30,17 @@
         <button class="btn btn-ghost btn-sm" @click="descargarXml" :disabled="descargando.xml">
           {{ descargando.xml ? 'Descargando…' : '⬇ Descargar XML' }}
         </button>
+        <button 
+          v-if="['PENDIENTE', 'ERROR'].includes(venta.estado_sunat)"
+          class="btn btn-primary btn-sm" 
+          @click="sincronizar" 
+          :disabled="sincronizando">
+          {{ sincronizando ? '⏳ Sincronizando…' : '🔄 Sincronizar SUNAT' }}
+        </button>
         <p class="doc-hint">Los documentos solo se pueden descargar estando autenticado.</p>
+        <p v-if="['PENDIENTE', 'ERROR'].includes(venta.estado_sunat)" class="doc-hint">
+          ℹ️ El sistema se sincroniza automáticamente cada 5 minutos. También puedes hacerlo manualmente.
+        </p>
       </div>
     </section>
 
@@ -64,9 +74,10 @@ const route = useRoute();
 const notify = useNotificationStore();
 const venta = ref(null);
 const descargando = reactive({ pdf: false, xml: false });
+const sincronizando = ref(false);
 
 function estadoBadge(estado) {
-  return { ACEPTADO: 'badge-ok', PENDIENTE: 'badge-warn', RECHAZADO: 'badge-danger', ANULADO: 'badge-off' }[estado] || 'badge-off';
+  return { ACEPTADO: 'badge-ok', PENDIENTE: 'badge-warn', RECHAZADO: 'badge-danger', ANULADO: 'badge-off', ERROR: 'badge-danger' }[estado] || 'badge-off';
 }
 
 async function cargar() {
@@ -74,6 +85,20 @@ async function cargar() {
     const { data } = await ventasApi.obtener(route.params.id);
     venta.value = data.data;
   } catch { notify.error('No se pudo cargar la venta'); }
+}
+
+async function sincronizar() {
+  sincronizando.value = true;
+  try {
+    const { data } = await ventasApi.sincronizarSunat(route.params.id);
+    venta.value = data.data;
+    const estadoNuevo = venta.value.estado_sunat;
+    notify.success(`Estado actualizado: ${estadoNuevo}`);
+  } catch (err) {
+    notify.error(err.response?.data?.message || 'Error al sincronizar con SUNAT');
+  } finally {
+    sincronizando.value = false;
+  }
 }
 
 async function descargarPdf() {

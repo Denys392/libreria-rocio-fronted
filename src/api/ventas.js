@@ -5,5 +5,7 @@ export const ventasApi = {
   obtener: (id) => http.get(`/ventas/${id}`),
   historico: (params) => http.get('/ventas/historico', { params }),
   actualizarEstadoSunat: (id, payload) => http.patch(`/ventas/${id}/estado-sunat`, payload),
-  obtenerProximoNumero: (tipoComprobante) => http.get(`/ventas/proximo-numero/${tipoComprobante}`)
+  obtenerProximoNumero: (tipoComprobante) => http.get(`/ventas/proximo-numero/${tipoComprobante}`),
+  sincronizarSunat: (id) => http.post(`/ventas/${id}/sincronizar-sunat`),
+  reenviarSunat: (id) => http.post(`/ventas/${id}/reenviar-sunat`)
 };
