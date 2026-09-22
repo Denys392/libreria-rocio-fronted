@@ -35,7 +35,14 @@
           <RouterLink to="/ventas" class="see-all">Ver todas →</RouterLink>
         </header>
         <table>
-          <thead><tr><th>Comprobante</th><th>Cliente</th><th>Fecha</th><th>Total</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Comprobante</th>
+              <th>Cliente</th>
+              <th>Fecha</th>
+              <th>Total</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="v in ultimasVentas" :key="v.venta_id">
               <td>{{ v.tipo_comprobante }}-{{ v.serie }}-{{ v.numero }}</td>
@@ -43,7 +50,10 @@
               <td>{{ formatoFecha(v.fecha_emision) }}</td>
               <td>{{ formatoMoneda(v.total, v.moneda) }}</td>
             </tr>
-            <tr v-if="!cargando && ultimasVentas.length === 0"><td colspan="4" style="text-align:center; color: var(--color-ink-soft);">Sin ventas registradas todavía</td></tr>
+            <tr v-if="!cargando && ultimasVentas.length === 0">
+              <td colspan="4" style="text-align:center; color: var(--color-ink-soft);">Sin ventas registradas todavía
+              </td>
+            </tr>
           </tbody>
         </table>
       </section>
@@ -54,7 +64,14 @@
           <RouterLink to="/compras" class="see-all">Ver todas →</RouterLink>
         </header>
         <table>
-          <thead><tr><th>Comprobante</th><th>Proveedor</th><th>Fecha</th><th>Total</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Comprobante</th>
+              <th>Proveedor</th>
+              <th>Fecha</th>
+              <th>Total</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="c in ultimasCompras" :key="c.compra_id">
               <td>{{ c.tipo_comprobante }}-{{ c.serie_comprobante }}-{{ c.numero_comprobante }}</td>
@@ -62,7 +79,10 @@
               <td>{{ formatoFecha(c.fecha_emision) }}</td>
               <td>{{ formatoMoneda(c.total, c.moneda) }}</td>
             </tr>
-            <tr v-if="!cargando && ultimasCompras.length === 0"><td colspan="4" style="text-align:center; color: var(--color-ink-soft);">Sin compras registradas todavía</td></tr>
+            <tr v-if="!cargando && ultimasCompras.length === 0">
+              <td colspan="4" style="text-align:center; color: var(--color-ink-soft);">Sin compras registradas todavía
+              </td>
+            </tr>
           </tbody>
         </table>
       </section>
@@ -108,22 +128,102 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.hero { padding: 1.8rem 2rem; margin-bottom: 1.4rem; display: flex; justify-content: space-between; align-items: center; }
-.hero-eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: .72rem; color: var(--color-gold); font-weight: 700; margin: 0 0 .3rem; }
-.hero h1 { font-size: 1.7rem; margin-bottom: .25rem; }
-.hero-sub { margin: 0; color: var(--color-ink-soft); }
+.hero {
+  padding: 1.8rem 2rem;
+  margin-bottom: 1.4rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.4rem; }
-.kpi { padding: 1.3rem 1.4rem; }
-.kpi-label { margin: 0 0 .4rem; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--color-ink-soft); font-weight: 600; }
-.kpi-value { font-family: var(--font-display); font-size: 2rem; margin: 0; color: var(--color-forest-deep); }
-.kpi-foot { margin: .3rem 0 0; font-size: .78rem; color: var(--color-ink-soft); }
-.quick-links { display: flex; flex-direction: column; gap: .5rem; margin-top: .3rem; }
+.hero-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .72rem;
+  color: var(--color-gold);
+  font-weight: 700;
+  margin: 0 0 .3rem;
+}
 
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
-.table-card-head { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.2rem .3rem; }
-.see-all { font-size: .82rem; color: var(--color-forest); font-weight: 600; text-decoration: none; }
-.see-all:hover { text-decoration: underline; }
+.hero h1 {
+  font-size: 1.7rem;
+  margin-bottom: .25rem;
+}
 
-@media (max-width: 980px) { .kpi-grid, .grid-2 { grid-template-columns: 1fr; } }
+.hero-sub {
+  margin: 0;
+  color: var(--color-ink-soft);
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+}
+
+.kpi {
+  padding: 1.3rem 1.4rem;
+}
+
+.kpi-label {
+  margin: 0 0 .4rem;
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--color-ink-soft);
+  font-weight: 600;
+}
+
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  margin: 0;
+  color: var(--color-forest-deep);
+}
+
+.kpi-foot {
+  margin: .3rem 0 0;
+  font-size: .78rem;
+  color: var(--color-ink-soft);
+}
+
+.quick-links {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin-top: .3rem;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+}
+
+.table-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.2rem .3rem;
+}
+
+.see-all {
+  font-size: .82rem;
+  color: var(--color-forest);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.see-all:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 980px) {
+
+  .kpi-grid,
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
