@@ -9,6 +9,24 @@
             <RouterLink to="/scraping/comparaciones" class="btn btn-ghost">Ver comparación de precios</RouterLink>
         </div>
 
+        <div class="toolbar card">
+            <div>
+                <h3 style="margin: 0;">Sincronizar desde una API externa</h3>
+                <p class="subt">Para socios que exponen su propio catálogo en JSON (ej. Bazar Elena), sin
+                    necesidad de scraping HTML.</p>
+            </div>
+            <div class="spacer"></div>
+        </div>
+        <div class="toolbar card">
+            <input v-model="formApi.nombreFuente" placeholder="Nombre de la fuente (ej. Bazar Elena)" />
+            <input v-model="formApi.baseUrl" placeholder="URL base de la API (ej. https://.../api/integracion/v1)"
+                style="flex: 1; min-width: 320px;" />
+            <input v-model="formApi.apiKey" placeholder="API Key entregada por el socio" style="min-width: 220px;" />
+            <button class="btn btn-gold" :disabled="cargandoFormApi" @click="sincronizarApi">
+                {{ cargandoFormApi ? 'Sincronizando…' : 'Sincronizar ahora' }}
+            </button>
+        </div>
+
         <div class="summary-bar card" v-if="!cargando">
             <div><span class="s-label">Jobs ejecutados</span><span class="s-value">{{ total }}</span></div>
             <div><span class="s-label">Productos capturados</span><span class="s-value">{{ sumaProductos }}</span></div>
@@ -59,7 +77,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
-import { solicitarScraping, getHistorialScraping } from '../../api/scraping';
+import { solicitarScraping, getHistorialScraping, sincronizarFuenteExterna } from '../../api/scraping';
 import { useNotificationStore } from '../../store/notifications';
 import { formatoFechaHora, formatoDuracion } from '../../utils/format';
 import EmptyState from '../../components/EmptyState.vue';
@@ -68,7 +86,9 @@ const notify = useNotificationStore();
 const historial = ref([]);
 const cargando = ref(true);
 const cargandoForm = ref(false);
+const cargandoFormApi = ref(false);
 const form = reactive({ target: '', url: '' });
+const formApi = reactive({ nombreFuente: '', baseUrl: '', apiKey: '' });
 
 const total = computed(() => historial.value.length);
 const sumaProductos = computed(() => historial.value.reduce((acc, j) => acc + (j.total_productos || 0), 0));
@@ -93,6 +113,21 @@ async function iniciarScraping() {
         setTimeout(cargar, 2000);
     } catch (err) { notify.error(err.response?.data?.message || 'No se pudo iniciar el scraping'); }
     finally { cargandoForm.value = false; }
+}
+
+async function sincronizarApi() {
+    if (!formApi.nombreFuente || !formApi.baseUrl) {
+        notify.error('Completa al menos el nombre y la URL base de la fuente');
+        return;
+    }
+    cargandoFormApi.value = true;
+    try {
+        const { data } = await sincronizarFuenteExterna({ ...formApi });
+        notify.success(data.message || 'Sincronización completada');
+        formApi.baseUrl = ''; formApi.apiKey = '';
+        cargar(); // es síncrono: al terminar, el job ya aparece completo
+    } catch (err) { notify.error(err.response?.data?.message || 'No se pudo sincronizar con la API externa'); }
+    finally { cargandoFormApi.value = false; }
 }
 
 // --- Polling: mientras exista algún job EN_PROCESO/PENDIENTE, refresca

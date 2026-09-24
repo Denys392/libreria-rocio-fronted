@@ -31,9 +31,15 @@
         <section class="card" style="margin-top: 1rem;">
             <div class="tabla-head">
                 <h3>Productos capturados</h3>
-                <button class="btn btn-primary btn-sm" :disabled="importando" @click="importarAlInventario">
-                    {{ importando ? 'Importando…' : 'Importar todos al inventario' }}
-                </button>
+                <div class="tabla-head-acciones">
+                    <label class="chk">
+                        <input type="checkbox" v-model="soloCoincidencias" />
+                        Mostrar solo coincidencias
+                    </label>
+                    <button class="btn btn-primary btn-sm" :disabled="importando" @click="importarAlInventario">
+                        {{ importando ? 'Importando…' : 'Importar todos al inventario' }}
+                    </button>
+                </div>
             </div>
 
             <table>
@@ -47,8 +53,8 @@
                         <th>Diferencia</th>
                     </tr>
                 </thead>
-                <tbody v-if="detalle.productos.length">
-                    <tr v-for="p in detalle.productos" :key="p.scraping_producto_id">
+                <tbody v-if="productosFiltrados.length">
+                    <tr v-for="p in productosFiltrados" :key="p.scraping_producto_id">
                         <td>
                             <img v-if="p.imagen_url && p.imagen_url !== 'Sin imagen'" :src="p.imagen_url"
                                 class="thumb" />
@@ -77,8 +83,8 @@
                     </tr>
                 </tbody>
             </table>
-            <EmptyState v-if="!detalle.productos.length" titulo="Sin productos"
-                descripcion="Este job no capturó productos." />
+            <EmptyState v-if="!productosFiltrados.length" titulo="Sin productos"
+                :descripcion="soloCoincidencias ? 'Ningún producto de este job coincide con tu inventario.' : 'Este job no capturó productos.'" />
         </section>
     </div>
     <EmptyState v-else-if="!cargando" titulo="Job no encontrado"
@@ -86,7 +92,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { getDetalleJob, importarProductosScrapeados } from '../../api/scraping';
 import { useNotificationStore } from '../../store/notifications';
@@ -98,6 +104,15 @@ const notify = useNotificationStore();
 const detalle = ref(null);
 const cargando = ref(true);
 const importando = ref(false);
+const soloCoincidencias = ref(false);
+
+// Solo los productos que sí tuvieron coincidencia (match) contra el
+// inventario propio, es decir, los que ya tienen producto_id asociado.
+const productosFiltrados = computed(() => {
+    if (!detalle.value) return [];
+    if (!soloCoincidencias.value) return detalle.value.productos;
+    return detalle.value.productos.filter((p) => p.producto_id);
+});
 
 async function cargar() {
     cargando.value = true;
@@ -198,6 +213,23 @@ onMounted(cargar);
 
 .tabla-head h3 {
     margin: 0;
+}
+
+.tabla-head-acciones {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.chk {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    white-space: nowrap;
 }
 
 .thumb {

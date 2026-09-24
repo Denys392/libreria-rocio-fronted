@@ -110,10 +110,25 @@ const routes = [
         },
       },
       {
+        path: "scraping/comparaciones",
+        name: "scraping-comparaciones",
+        component: () =>
+          import("../views/scraping/Comparacionespreciosview.vue"),
+        meta: { roles: ["ADMIN", "OPERADOR"] },
+      },
+      {
         path: "scraping/:id",
         name: "scraping-detalle",
         component: () => import("../views/scraping/Scrapingdetalleview.vue"),
         meta: { roles: ["ADMIN", "OPERADOR"] },
+      },
+
+      {
+        path: "integraciones",
+        name: "integraciones",
+        component: () =>
+          import("../views/integraciones/IntegracionesView.vue"),
+        meta: { roles: ["ADMIN"] },
       },
     ],
   },

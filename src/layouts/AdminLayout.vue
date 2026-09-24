@@ -45,9 +45,13 @@
           <RouterLink to="/scraping" class="nav-link" active-class="active" @click="menuAbierto = false">
             <IconShield /> Scraping
           </RouterLink>
-          <!-- <RouterLink to="/scraping/comparaciones" class="nav-link" active-class="active" @click="menuAbierto = false">
-            <IconShield /> Comparación de precios
-          </RouterLink> -->
+          <RouterLink to="/scraping/comparaciones" class="nav-link" active-class="active"
+            @click="menuAbierto = false">
+            <IconTag /> Comparación de precios
+          </RouterLink>
+          <RouterLink to="/integraciones" class="nav-link" active-class="active" @click="menuAbierto = false">
+            <IconShield /> API pública
+          </RouterLink>
         </template>
       </nav>
 
@@ -113,7 +117,9 @@ const titulos = {
   'ventas-detalle': 'Detalle de venta',
   auditoria: 'Auditoría del sistema',
   scraping: 'Scraping',
-  'scraping/comparaciones': 'Comparación de precios'
+  'scraping-comparaciones': 'Comparación de precios',
+  'scraping-detalle': 'Detalle del job de scraping',
+  integraciones: 'API pública'
 };
 const tituloPagina = computed(() => titulos[route.name] || 'Librería Rocío');
 

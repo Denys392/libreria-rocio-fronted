@@ -9,3 +9,5 @@ export const importarProductosScrapeados = (payload) =>
   http.post("/scraping/importar", payload);
 export const getComparacionesGlobales = (soloAlertas = false) =>
   http.get("/scraping/comparaciones", { params: { soloAlertas } });
+export const sincronizarFuenteExterna = (payload) =>
+  http.post("/scraping/api-externa/sincronizar", payload);
