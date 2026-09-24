@@ -58,7 +58,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { solicitarScraping, getHistorialScraping } from '../../api/scraping';
 import { useNotificationStore } from '../../store/notifications';
 import { formatoFechaHora, formatoDuracion } from '../../utils/format';
@@ -83,16 +83,46 @@ async function cargar() {
 }
 
 async function iniciarScraping() {
-    if (!form.target || !form.url) { notify.error('Completa el sitio web y la URL'); return; }
     cargandoForm.value = true;
     try {
         await solicitarScraping({ ...form });
-        notify.success('Scraping iniciado correctamente');
+        notify.success('Scraping iniciado. Verás el job aquí en unos segundos…');
         form.target = ''; form.url = '';
-        await cargar();
+        // El job se crea en segundo plano (Python), así que esperamos un
+        // instante antes de refrescar por primera vez.
+        setTimeout(cargar, 2000);
     } catch (err) { notify.error(err.response?.data?.message || 'No se pudo iniciar el scraping'); }
     finally { cargandoForm.value = false; }
 }
+
+// --- Polling: mientras exista algún job EN_PROCESO/PENDIENTE, refresca
+// el historial cada 5s para reflejar el estado final sin que el usuario
+// tenga que recargar la página manualmente.
+let intervalId = null;
+const jobsEnProceso = computed(() =>
+    historial.value.some(j => j.estado === 'EN_PROCESO' || j.estado === 'PENDIENTE')
+);
+
+async function cargarConNotificacion() {
+    const estadosPrevios = new Map(historial.value.map(j => [j.ejecucion_id, j.estado]));
+    await cargar();
+    for (const job of historial.value) {
+        const previo = estadosPrevios.get(job.ejecucion_id);
+        if (previo && previo !== job.estado && (job.estado === 'COMPLETADO' || job.estado === 'ERROR')) {
+            job.estado === 'COMPLETADO'
+                ? notify.success(`Análisis del job #${job.ejecucion_id} finalizado`)
+                : notify.error(`Job #${job.ejecucion_id} terminó con error`);
+        }
+    }
+}
+
+onMounted(async () => {
+    await cargar();
+    intervalId = setInterval(() => {
+        if (jobsEnProceso.value) cargarConNotificacion();
+    }, 5000);
+});
+onUnmounted(() => clearInterval(intervalId));
 
 function badgeClase(estado) {
     if (estado === 'COMPLETADO') return 'badge-ok';
@@ -100,7 +130,6 @@ function badgeClase(estado) {
     return 'badge-danger'; // ERROR
 }
 
-onMounted(cargar);
 </script>
 
 <style scoped>
