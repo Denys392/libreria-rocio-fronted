@@ -11,20 +11,77 @@
 
         <div class="toolbar card">
             <div>
-                <h3 style="margin: 0;">Sincronizar desde una API externa</h3>
-                <p class="subt">Para socios que exponen su propio catálogo en JSON (ej. Bazar Elena), sin
-                    necesidad de scraping HTML.</p>
+                <h3 style="margin: 0;">Fuentes de API externas</h3>
+                <p class="subt">Para socios que exponen su propio catálogo en JSON (ej. Bazar Elena). Se
+                    configuran una sola vez; luego solo hace falta darle a "Sincronizar ahora".</p>
             </div>
             <div class="spacer"></div>
+            <button class="btn btn-gold" @click="abrirCrearFuente">+ Agregar fuente</button>
         </div>
-        <div class="toolbar card">
-            <input v-model="formApi.nombreFuente" placeholder="Nombre de la fuente (ej. Bazar Elena)" />
-            <input v-model="formApi.baseUrl" placeholder="URL base de la API (ej. https://.../api/integracion/v1)"
-                style="flex: 1; min-width: 320px;" />
-            <input v-model="formApi.apiKey" placeholder="API Key entregada por el socio" style="min-width: 220px;" />
-            <button class="btn btn-gold" :disabled="cargandoFormApi" @click="sincronizarApi">
-                {{ cargandoFormApi ? 'Sincronizando…' : 'Sincronizar ahora' }}
-            </button>
+
+        <section class="card" style="margin-bottom: 1rem;" v-if="!cargandoFuentes && fuentesExternas.length">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>URL base</th>
+                        <th>Estado</th>
+                        <th>Última sincronización</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="f in fuentesExternas" :key="f.fuente_id">
+                        <td>{{ f.nombre }}</td>
+                        <td class="mono">{{ f.base_url }}</td>
+                        <td><span class="badge" :class="f.activo ? 'badge-ok' : 'badge-off'">{{ f.activo ? 'Activa' :
+                            'Desactivada' }}</span></td>
+                        <td>{{ f.ultima_sincronizacion ? formatoFechaHora(f.ultima_sincronizacion) : 'Nunca' }}</td>
+                        <td style="text-align:right; white-space: nowrap;">
+                            <button class="btn btn-gold btn-sm" :disabled="sincronizandoId === f.fuente_id || !f.activo"
+                                @click="sincronizar(f)">
+                                {{ sincronizandoId === f.fuente_id ? 'Sincronizando…' : 'Sincronizar ahora' }}
+                            </button>
+                            <button class="btn btn-ghost btn-sm" @click="abrirEditarFuente(f)">Editar</button>
+                            <button v-if="f.activo" class="btn btn-danger btn-sm" @click="cambiarEstadoFuente(f, false)">Desactivar</button>
+                            <button v-else class="btn btn-ghost btn-sm" @click="cambiarEstadoFuente(f, true)">Activar</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        <EmptyState v-else-if="!cargandoFuentes" titulo="Sin fuentes configuradas"
+            descripcion="Agrega una fuente (nombre, URL base y API key) para poder sincronizar su catálogo." />
+
+        <!-- Modal: crear/editar fuente externa -->
+        <ModalDialog v-model="modalFuenteAbierto" :title="fuenteEditando ? 'Editar fuente externa' : 'Nueva fuente externa'">
+            <form id="form-fuente-externa" @submit.prevent="guardarFuente">
+                <div class="field">
+                    <label>Nombre de la fuente</label>
+                    <input v-model.trim="formFuente.nombre" placeholder="Ej. Bazar Elena" required />
+                </div>
+                <div class="field">
+                    <label>URL base de la API</label>
+                    <input v-model.trim="formFuente.baseUrl"
+                        placeholder="https://.../api/integracion/v1" required />
+                </div>
+                <div class="field">
+                    <label>API Key {{ fuenteEditando ? '(déjalo vacío para no cambiarla)' : '' }}</label>
+                    <input v-model.trim="formFuente.apiKey"
+                        :placeholder="fuenteEditando ? '•••••••• (sin cambios)' : 'API key entregada por el socio'"
+                        :required="!fuenteEditando" />
+                </div>
+            </form>
+            <template #footer>
+                <button class="btn btn-ghost" @click="modalFuenteAbierto = false">Cancelar</button>
+                <button class="btn btn-primary" form="form-fuente-externa" type="submit" :disabled="guardandoFuente">
+                    {{ guardandoFuente ? 'Guardando…' : 'Guardar' }}
+                </button>
+            </template>
+        </ModalDialog>
+
+        <div class="toolbar card" style="margin-top: 1.5rem;">
+            <h3 style="margin: 0;">Historial de scraping</h3>
         </div>
 
         <div class="summary-bar card" v-if="!cargando">
@@ -77,18 +134,30 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
-import { solicitarScraping, getHistorialScraping, sincronizarFuenteExterna } from '../../api/scraping';
+import {
+    solicitarScraping, getHistorialScraping,
+    getFuentesExternas, crearFuenteExterna, actualizarFuenteExterna,
+    activarFuenteExterna, desactivarFuenteExterna, sincronizarFuenteExterna
+} from '../../api/scraping';
 import { useNotificationStore } from '../../store/notifications';
 import { formatoFechaHora, formatoDuracion } from '../../utils/format';
 import EmptyState from '../../components/EmptyState.vue';
+import ModalDialog from '../../components/ModalDialog.vue';
 
 const notify = useNotificationStore();
 const historial = ref([]);
 const cargando = ref(true);
 const cargandoForm = ref(false);
-const cargandoFormApi = ref(false);
 const form = reactive({ target: '', url: '' });
-const formApi = reactive({ nombreFuente: '', baseUrl: '', apiKey: '' });
+
+// --- Fuentes externas (configuración persistente) ---
+const fuentesExternas = ref([]);
+const cargandoFuentes = ref(true);
+const modalFuenteAbierto = ref(false);
+const guardandoFuente = ref(false);
+const sincronizandoId = ref(null);
+const fuenteEditando = ref(null); // null = creando, objeto = editando
+const formFuente = reactive({ nombre: '', baseUrl: '', apiKey: '' });
 
 const total = computed(() => historial.value.length);
 const sumaProductos = computed(() => historial.value.reduce((acc, j) => acc + (j.total_productos || 0), 0));
@@ -115,19 +184,64 @@ async function iniciarScraping() {
     finally { cargandoForm.value = false; }
 }
 
-async function sincronizarApi() {
-    if (!formApi.nombreFuente || !formApi.baseUrl) {
-        notify.error('Completa al menos el nombre y la URL base de la fuente');
-        return;
-    }
-    cargandoFormApi.value = true;
+async function sincronizar(fuente) {
+    sincronizandoId.value = fuente.fuente_id;
     try {
-        const { data } = await sincronizarFuenteExterna({ ...formApi });
+        const { data } = await sincronizarFuenteExterna(fuente.fuente_id);
         notify.success(data.message || 'Sincronización completada');
-        formApi.baseUrl = ''; formApi.apiKey = '';
         cargar(); // es síncrono: al terminar, el job ya aparece completo
-    } catch (err) { notify.error(err.response?.data?.message || 'No se pudo sincronizar con la API externa'); }
-    finally { cargandoFormApi.value = false; }
+        cargarFuentes();
+    } catch (err) { notify.error(err.response?.data?.message || 'No se pudo sincronizar con la fuente externa'); }
+    finally { sincronizandoId.value = null; }
+}
+
+async function cargarFuentes() {
+    cargandoFuentes.value = true;
+    try {
+        const { data } = await getFuentesExternas();
+        fuentesExternas.value = data.data;
+    } catch { notify.error('No se pudieron cargar las fuentes externas'); }
+    finally { cargandoFuentes.value = false; }
+}
+
+function abrirCrearFuente() {
+    fuenteEditando.value = null;
+    Object.assign(formFuente, { nombre: '', baseUrl: '', apiKey: '' });
+    modalFuenteAbierto.value = true;
+}
+
+function abrirEditarFuente(fuente) {
+    fuenteEditando.value = fuente;
+    Object.assign(formFuente, { nombre: fuente.nombre, baseUrl: fuente.base_url, apiKey: '' });
+    modalFuenteAbierto.value = true;
+}
+
+async function guardarFuente() {
+    guardandoFuente.value = true;
+    try {
+        if (fuenteEditando.value) {
+            // apiKey va vacío si no se quiere cambiar (el backend conserva la actual)
+            await actualizarFuenteExterna(fuenteEditando.value.fuente_id, { ...formFuente });
+            notify.success('Fuente actualizada correctamente');
+        } else {
+            await crearFuenteExterna({ ...formFuente });
+            notify.success('Fuente guardada correctamente. Ya puedes sincronizarla cuando quieras.');
+        }
+        modalFuenteAbierto.value = false;
+        cargarFuentes();
+    } catch (err) {
+        notify.error(err.response?.data?.message || 'No se pudo guardar la fuente');
+    } finally {
+        guardandoFuente.value = false;
+    }
+}
+
+async function cambiarEstadoFuente(fuente, activo) {
+    try {
+        activo ? await activarFuenteExterna(fuente.fuente_id) : await desactivarFuenteExterna(fuente.fuente_id);
+        notify.success(activo ? 'Fuente activada' : 'Fuente desactivada');
+        cargarFuentes();
+    } catch (err) { notify.error(err.response?.data?.message || 'No se pudo actualizar el estado'); }
 }
 
 // --- Polling: mientras exista algún job EN_PROCESO/PENDIENTE, refresca
@@ -153,6 +267,7 @@ async function cargarConNotificacion() {
 
 onMounted(async () => {
     await cargar();
+    cargarFuentes();
     intervalId = setInterval(() => {
         if (jobsEnProceso.value) cargarConNotificacion();
     }, 5000);
