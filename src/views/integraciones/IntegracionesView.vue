@@ -122,6 +122,62 @@
         <button class="btn btn-primary" @click="cerrarCredenciales">Entendido, ya lo guardé</button>
       </template>
     </ModalDialog>
+
+    <!-- Auditoría de consumo: toda actividad de TODAS las integraciones,
+         ordenada de más reciente a más antigua, con filtro opcional por una. -->
+    <div class="toolbar card" style="margin-top: 1.5rem;">
+      <div>
+        <h3 style="margin: 0;">Actividad de mis integraciones</h3>
+        <p class="subt">Cada llamada que otra página hizo a tu API pública (y cada token emitido o rechazado),
+          de todas tus integraciones juntas.</p>
+      </div>
+      <div class="spacer"></div>
+      <select v-model="filtroAuditoria" @change="cargarAuditoria(1)" class="select-filtro">
+        <option :value="null">Todas las integraciones</option>
+        <option v-for="c in integraciones" :key="c.api_client_id" :value="c.api_client_id">{{ c.nombre_cliente }}
+        </option>
+      </select>
+    </div>
+
+    <section class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Integración</th>
+            <th>Endpoint</th>
+            <th>Método</th>
+            <th>Resultado</th>
+            <th>IP origen</th>
+          </tr>
+        </thead>
+        <tbody v-if="cargandoAuditoria">
+          <tr v-for="n in 4" :key="n" class="skeleton-row">
+            <td colspan="6">
+              <div class="skeleton-bar"></div>
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-else-if="auditoria.length">
+          <tr v-for="a in auditoria" :key="a.auditoria_id">
+            <td>{{ formatoFechaHora(a.fecha) }}</td>
+            <td>{{ a.nombre_cliente || 'Desconocida (api key inválida)' }}</td>
+            <td class="mono">{{ a.endpoint }}</td>
+            <td>{{ a.metodo }}</td>
+            <td>
+              <span class="badge" :class="a.estado === 'EXITO' ? 'badge-ok' : 'badge-danger'">{{ a.codigo_http || ''
+                }} {{ a.estado }}</span>
+              <div v-if="a.mensaje_error" class="mensaje-error">{{ a.mensaje_error }}</div>
+            </td>
+            <td class="mono">{{ a.ip_origen || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <EmptyState v-if="!cargandoAuditoria && auditoria.length === 0" titulo="Sin actividad todavía"
+        descripcion="Aquí aparecerá cada vez que alguien use una de tus integraciones." />
+      <PaginationBar v-if="totalAuditoria > 0" :page="paginaAuditoria" :limit="limiteAuditoria"
+        :total="totalAuditoria" @update:page="cargarAuditoria" />
+    </section>
   </div>
 </template>
 
@@ -132,6 +188,7 @@ import { useNotificationStore } from '../../store/notifications';
 import { formatoFechaHora } from '../../utils/format';
 import ModalDialog from '../../components/ModalDialog.vue';
 import EmptyState from '../../components/EmptyState.vue';
+import PaginationBar from '../../components/PaginationBar.vue';
 
 const notify = useNotificationStore();
 const integraciones = ref([]);
@@ -143,6 +200,14 @@ const credencialesNuevas = ref(null);
 const visibles = reactive({});
 
 const form = reactive({ nombreCliente: '', scopes: [] });
+
+// --- Auditoría de consumo (tabla integraciones_auditoria) ---
+const auditoria = ref([]);
+const cargandoAuditoria = ref(true);
+const paginaAuditoria = ref(1);
+const limiteAuditoria = ref(20);
+const totalAuditoria = ref(0);
+const filtroAuditoria = ref(null); // null = todas las integraciones juntas
 
 async function cargar() {
   cargando.value = true;
@@ -223,6 +288,24 @@ async function regenerarSecreto(c) {
   }
 }
 
+async function cargarAuditoria(pagina = 1) {
+  paginaAuditoria.value = pagina;
+  cargandoAuditoria.value = true;
+  try {
+    const { data } = await integracionesApi.listarAuditoria({
+      page: pagina,
+      limit: limiteAuditoria.value,
+      apiClientId: filtroAuditoria.value || undefined
+    });
+    auditoria.value = data.data.rows;
+    totalAuditoria.value = data.data.total;
+  } catch {
+    notify.error('No se pudo cargar la actividad de las integraciones');
+  } finally {
+    cargandoAuditoria.value = false;
+  }
+}
+
 async function copiar(texto) {
   if (!texto) return;
   try {
@@ -233,7 +316,10 @@ async function copiar(texto) {
   }
 }
 
-onMounted(cargar);
+onMounted(() => {
+  cargar();
+  cargarAuditoria();
+});
 </script>
 
 <style scoped>
@@ -319,5 +405,21 @@ onMounted(cargar);
   font-size: .78rem;
   color: var(--color-ink-soft);
   margin: .3rem 0 0;
+}
+
+.select-filtro {
+  padding: .5rem .8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: .85rem;
+  min-width: 220px;
+}
+
+.mensaje-error {
+  font-size: .72rem;
+  color: var(--color-wine);
+  margin-top: .2rem;
+  max-width: 320px;
 }
 </style>

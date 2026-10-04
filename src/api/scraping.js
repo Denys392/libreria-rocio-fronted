@@ -23,3 +23,7 @@ export const desactivarFuenteExterna = (id) =>
   http.patch(`/scraping/fuentes-externas/${id}/desactivar`);
 export const sincronizarFuenteExterna = (id) =>
   http.post(`/scraping/fuentes-externas/${id}/sincronizar`);
+
+// Auditoría propia del módulo de Scraping (tabla scraping_auditoria)
+export const getAuditoriaScraping = (params = {}) =>
+  http.get("/scraping/auditoria", { params });

@@ -129,6 +129,54 @@
             <EmptyState v-if="!cargando && historial.length === 0" titulo="Aún no hay jobs de scraping"
                 descripcion="Ejecuta una extracción con el formulario de arriba para comenzar." />
         </section>
+
+        <!-- Auditoría propia del scraping (tabla scraping_auditoria, separada
+             de la auditoría de Integraciones): disparos a Python, resultado
+             del webhook, y sincronizaciones de API externa. -->
+        <div class="toolbar card" style="margin-top: 1.5rem;">
+            <h3 style="margin: 0;">Auditoría de scraping</h3>
+        </div>
+        <section class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha inicio</th>
+                        <th>Evento</th>
+                        <th>Job / Fuente</th>
+                        <th>Usuario</th>
+                        <th>Resultado</th>
+                        <th>Duración</th>
+                    </tr>
+                </thead>
+                <tbody v-if="cargandoAuditoria">
+                    <tr v-for="n in 4" :key="n" class="skeleton-row">
+                        <td colspan="6">
+                            <div class="skeleton-bar"></div>
+                        </td>
+                    </tr>
+                </tbody>
+                <tbody v-else-if="auditoria.length">
+                    <tr v-for="a in auditoria" :key="a.auditoria_id">
+                        <td>{{ formatoFechaHora(a.fecha_inicio) }}</td>
+                        <td>{{ etiquetaEvento(a.tipo_evento) }}</td>
+                        <td class="mono">
+                            <span v-if="a.ejecucion_id">Job #{{ a.ejecucion_id }}</span>
+                            <span v-if="a.fuente_nombre"> · {{ a.fuente_nombre }}</span>
+                        </td>
+                        <td>{{ a.usuario_nombre || '—' }}</td>
+                        <td>
+                            <span class="badge" :class="a.estado === 'EXITO' ? 'badge-ok' : (a.estado === 'ERROR' ? 'badge-danger' : 'badge-warn')">{{ a.estado }}</span>
+                            <div v-if="a.mensaje_error" class="mensaje-error">{{ a.mensaje_error }}</div>
+                        </td>
+                        <td>{{ a.fecha_fin ? formatoDuracion(a.fecha_inicio, a.fecha_fin) : '—' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <EmptyState v-if="!cargandoAuditoria && auditoria.length === 0" titulo="Sin actividad registrada"
+                descripcion="Aquí quedará cada disparo de scraping y cada sincronización de API externa." />
+            <PaginationBar v-if="totalAuditoria > 0" :page="paginaAuditoria" :limit="limiteAuditoria"
+                :total="totalAuditoria" @update:page="cargarAuditoria" />
+        </section>
     </div>
 </template>
 
@@ -137,12 +185,14 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import {
     solicitarScraping, getHistorialScraping,
     getFuentesExternas, crearFuenteExterna, actualizarFuenteExterna,
-    activarFuenteExterna, desactivarFuenteExterna, sincronizarFuenteExterna
+    activarFuenteExterna, desactivarFuenteExterna, sincronizarFuenteExterna,
+    getAuditoriaScraping
 } from '../../api/scraping';
 import { useNotificationStore } from '../../store/notifications';
 import { formatoFechaHora, formatoDuracion } from '../../utils/format';
 import EmptyState from '../../components/EmptyState.vue';
 import ModalDialog from '../../components/ModalDialog.vue';
+import PaginationBar from '../../components/PaginationBar.vue';
 
 const notify = useNotificationStore();
 const historial = ref([]);
@@ -159,16 +209,33 @@ const sincronizandoId = ref(null);
 const fuenteEditando = ref(null); // null = creando, objeto = editando
 const formFuente = reactive({ nombre: '', baseUrl: '', apiKey: '' });
 
+// --- Auditoría propia del scraping (tabla scraping_auditoria) ---
+const auditoria = ref([]);
+const cargandoAuditoria = ref(true);
+const paginaAuditoria = ref(1);
+const limiteAuditoria = ref(20);
+const totalAuditoria = ref(0);
+
+const ETIQUETAS_EVENTO = {
+    DISPARO_PYTHON: 'Disparo de scraping (Python)',
+    WEBHOOK_PYTHON: 'Job finalizado (Python)',
+    API_EXTERNA: 'Sincronización API externa',
+};
+function etiquetaEvento(tipo) { return ETIQUETAS_EVENTO[tipo] || tipo; }
+
 const total = computed(() => historial.value.length);
 const sumaProductos = computed(() => historial.value.reduce((acc, j) => acc + (j.total_productos || 0), 0));
 
-async function cargar() {
-    cargando.value = true;
+// `silencioso=true` evita el parpadeo de "recarga": se usa en el polling de
+// fondo para no reemplazar la tabla por el skeleton cada 5s mientras hay un
+// job en curso (solo se actualizan los datos ya mostrados).
+async function cargar(silencioso = false) {
+    if (!silencioso) cargando.value = true;
     try {
         const { data } = await getHistorialScraping();
         historial.value = data.data;
     } catch { notify.error('No se pudo cargar el historial de scraping'); }
-    finally { cargando.value = false; }
+    finally { if (!silencioso) cargando.value = false; }
 }
 
 async function iniciarScraping() {
@@ -179,7 +246,7 @@ async function iniciarScraping() {
         form.target = ''; form.url = '';
         // El job se crea en segundo plano (Python), así que esperamos un
         // instante antes de refrescar por primera vez.
-        setTimeout(cargar, 2000);
+        setTimeout(() => { cargar(); cargarAuditoria(1); }, 2000);
     } catch (err) { notify.error(err.response?.data?.message || 'No se pudo iniciar el scraping'); }
     finally { cargandoForm.value = false; }
 }
@@ -189,8 +256,9 @@ async function sincronizar(fuente) {
     try {
         const { data } = await sincronizarFuenteExterna(fuente.fuente_id);
         notify.success(data.message || 'Sincronización completada');
-        cargar(); // es síncrono: al terminar, el job ya aparece completo
+        cargar(true); // es síncrono: al terminar, el job ya aparece completo (sin parpadeo)
         cargarFuentes();
+        cargarAuditoria(1);
     } catch (err) { notify.error(err.response?.data?.message || 'No se pudo sincronizar con la fuente externa'); }
     finally { sincronizandoId.value = null; }
 }
@@ -244,6 +312,17 @@ async function cambiarEstadoFuente(fuente, activo) {
     } catch (err) { notify.error(err.response?.data?.message || 'No se pudo actualizar el estado'); }
 }
 
+async function cargarAuditoria(pagina = 1) {
+    paginaAuditoria.value = pagina;
+    cargandoAuditoria.value = true;
+    try {
+        const { data } = await getAuditoriaScraping({ page: pagina, limit: limiteAuditoria.value });
+        auditoria.value = data.data.rows;
+        totalAuditoria.value = data.data.total;
+    } catch { notify.error('No se pudo cargar la auditoría de scraping'); }
+    finally { cargandoAuditoria.value = false; }
+}
+
 // --- Polling: mientras exista algún job EN_PROCESO/PENDIENTE, refresca
 // el historial cada 5s para reflejar el estado final sin que el usuario
 // tenga que recargar la página manualmente.
@@ -254,7 +333,7 @@ const jobsEnProceso = computed(() =>
 
 async function cargarConNotificacion() {
     const estadosPrevios = new Map(historial.value.map(j => [j.ejecucion_id, j.estado]));
-    await cargar();
+    await cargar(true); // silencioso: no reinicia el skeleton/tabla cada 5s
     for (const job of historial.value) {
         const previo = estadosPrevios.get(job.ejecucion_id);
         if (previo && previo !== job.estado && (job.estado === 'COMPLETADO' || job.estado === 'ERROR')) {
@@ -268,6 +347,7 @@ async function cargarConNotificacion() {
 onMounted(async () => {
     await cargar();
     cargarFuentes();
+    cargarAuditoria();
     intervalId = setInterval(() => {
         if (jobsEnProceso.value) cargarConNotificacion();
     }, 5000);
@@ -325,5 +405,12 @@ function badgeClase(estado) {
     font-family: var(--font-display);
     font-size: 1.35rem;
     color: var(--color-forest-deep);
+}
+
+.mensaje-error {
+    font-size: .72rem;
+    color: var(--color-wine);
+    margin-top: .2rem;
+    max-width: 320px;
 }
 </style>

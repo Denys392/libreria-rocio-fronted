@@ -5,5 +5,7 @@ export const integracionesApi = {
   crear: (payload) => http.post('/integraciones', payload),
   revocar: (id) => http.patch(`/integraciones/${id}/revocar`),
   reactivar: (id) => http.patch(`/integraciones/${id}/reactivar`),
-  regenerarSecreto: (id) => http.patch(`/integraciones/${id}/regenerar-secreto`)
+  regenerarSecreto: (id) => http.patch(`/integraciones/${id}/regenerar-secreto`),
+  // Auditoría propia de Integraciones (tabla integraciones_auditoria)
+  listarAuditoria: (params = {}) => http.get('/integraciones/auditoria', { params })
 };
