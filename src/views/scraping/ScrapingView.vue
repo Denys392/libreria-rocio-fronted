@@ -144,13 +144,14 @@
                         <th>Evento</th>
                         <th>Job / Fuente</th>
                         <th>Usuario</th>
+                        <th>Productos</th>
                         <th>Resultado</th>
                         <th>Duración</th>
                     </tr>
                 </thead>
                 <tbody v-if="cargandoAuditoria">
                     <tr v-for="n in 4" :key="n" class="skeleton-row">
-                        <td colspan="6">
+                        <td colspan="7">
                             <div class="skeleton-bar"></div>
                         </td>
                     </tr>
@@ -164,6 +165,10 @@
                             <span v-if="a.fuente_nombre"> · {{ a.fuente_nombre }}</span>
                         </td>
                         <td>{{ a.usuario_nombre || '—' }}</td>
+                        <td>
+                            <span v-if="a.total_productos != null">{{ a.total_productos }} leídos<span v-if="a.total_comparados != null"> · {{ a.total_comparados }} coincidencias</span></span>
+                            <span v-else>—</span>
+                        </td>
                         <td>
                             <span class="badge" :class="a.estado === 'EXITO' ? 'badge-ok' : (a.estado === 'ERROR' ? 'badge-danger' : 'badge-warn')">{{ a.estado }}</span>
                             <div v-if="a.mensaje_error" class="mensaje-error">{{ a.mensaje_error }}</div>
