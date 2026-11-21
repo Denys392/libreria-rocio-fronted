@@ -4,55 +4,26 @@
       <h3 style="margin-bottom: 1rem;">Mis datos</h3>
       <dl class="dl">
         <dt>Nombre</dt><dd>{{ auth.usuario?.nombre }}</dd>
-        <dt>Correo</dt><dd>{{ auth.usuario?.email }}</dd>
+        <dt>Correo</dt><dd>{{ auth.usuario?.correo }}</dd>
+        <dt>Aplicación</dt><dd>{{ auth.aplicacion?.nombre }}</dd>
         <dt>Rol</dt><dd><span class="badge badge-ok">{{ auth.rol }}</span></dd>
-        <dt>Estado</dt><dd>{{ auth.usuario?.estado === 0 ? 'Inactivo' : 'Activo' }}</dd>
       </dl>
     </section>
 
     <section class="card" style="padding: 1.4rem 1.6rem;">
-      <h3 style="margin-bottom: 1rem;">Cambiar contraseña</h3>
-      <form @submit.prevent="onSubmit">
-        <div class="field">
-          <label for="actual">Contraseña actual</label>
-          <input id="actual" v-model="form.passwordActual" type="password" required />
-        </div>
-        <div class="field">
-          <label for="nueva">Nueva contraseña</label>
-          <input id="nueva" v-model="form.passwordNuevo" type="password" minlength="6" required />
-        </div>
-        <button class="btn btn-primary" type="submit" :disabled="cargando">
-          {{ cargando ? 'Guardando…' : 'Actualizar contraseña' }}
-        </button>
-      </form>
+      <h3 style="margin-bottom: 1rem;">Seguridad de la cuenta</h3>
+      <p style="margin: 0; color: var(--color-ink-soft); line-height: 1.5;">
+        Su clave y su verificación en 2 pasos se administran en el sistema de seguridad.
+        Para cambiar de rol, cierre sesión e ingrese de nuevo.
+      </p>
     </section>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
 import { useAuthStore } from '../store/auth';
-import { usuariosApi } from '../api/usuarios';
-import { useNotificationStore } from '../store/notifications';
 
 const auth = useAuthStore();
-const notify = useNotificationStore();
-const form = reactive({ passwordActual: '', passwordNuevo: '' });
-const cargando = ref(false);
-
-async function onSubmit() {
-  cargando.value = true;
-  try {
-    await usuariosApi.cambiarPassword(form);
-    notify.success('Contraseña actualizada correctamente');
-    form.passwordActual = '';
-    form.passwordNuevo = '';
-  } catch (err) {
-    notify.error(err.response?.data?.message || 'No se pudo actualizar la contraseña');
-  } finally {
-    cargando.value = false;
-  }
-}
 </script>
 
 <style scoped>

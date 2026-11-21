@@ -5,54 +5,39 @@
         <div class="brand-mark">LR</div>
         <div>
           <p class="brand-title">Librería Rocío</p>
-          <p class="brand-sub">Panel de gestión</p>
+          <p class="brand-sub">{{ auth.aplicacion?.nombre || 'Panel de gestión' }}</p>
         </div>
       </div>
 
       <nav class="nav">
-        <p class="nav-group">General</p>
-        <RouterLink to="/" class="nav-link" exact-active-class="active" @click="menuAbierto = false">
-          <IconDash /> Panel principal
-        </RouterLink>
-
-        <p class="nav-group">Catálogo</p>
-        <RouterLink to="/productos" class="nav-link" active-class="active" @click="menuAbierto = false">
-          <IconBox /> Productos
-        </RouterLink>
-        <RouterLink to="/productos/categorias" class="nav-link" active-class="active" @click="menuAbierto = false">
-          <IconTag /> Categorías
-        </RouterLink>
-        <RouterLink to="/proveedores" class="nav-link" active-class="active" @click="menuAbierto = false">
-          <IconPeople /> Proveedores / Clientes
-        </RouterLink>
-
-        <p class="nav-group">Operaciones</p>
-        <RouterLink to="/compras" class="nav-link" active-class="active" @click="menuAbierto = false">
-          <IconCart /> Compras
-        </RouterLink>
-        <RouterLink to="/ventas" class="nav-link" active-class="active" @click="menuAbierto = false">
-          <IconReceipt /> Ventas
-        </RouterLink>
-
-        <template v-if="auth.esAdmin">
-          <p class="nav-group">Administración</p>
-          <RouterLink to="/usuarios" class="nav-link" active-class="active" @click="menuAbierto = false">
-            <IconUser /> Usuarios
-          </RouterLink>
-          <RouterLink to="/auditoria" class="nav-link" active-class="active" @click="menuAbierto = false">
-            <IconShield /> Auditoría
-          </RouterLink>
-          <RouterLink to="/scraping" class="nav-link" active-class="active" @click="menuAbierto = false">
-            <IconShield /> Scraping
-          </RouterLink>
-          <RouterLink to="/scraping/comparaciones" class="nav-link" active-class="active"
-            @click="menuAbierto = false">
-            <IconTag /> Comparación de precios
-          </RouterLink>
-          <RouterLink to="/integraciones" class="nav-link" active-class="active" @click="menuAbierto = false">
-            <IconShield /> API pública
-          </RouterLink>
+        <template v-for="padre in auth.menu" :key="padre.id">
+          <template v-if="padre.hijos && padre.hijos.length">
+            <p class="nav-group">{{ padre.nombre }}</p>
+            <template v-for="hijo in padre.hijos" :key="hijo.id">
+              <RouterLink
+                v-if="hijo.ruta" :to="hijo.ruta" class="nav-link"
+                :active-class="hijo.ruta === '/' ? '' : 'active'" exact-active-class="active"
+                @click="menuAbierto = false"
+              >
+                <component :is="iconoDe(hijo.icono)" /> {{ hijo.nombre }}
+              </RouterLink>
+            </template>
+          </template>
+          <template v-else-if="padre.ruta">
+            <RouterLink
+              :to="padre.ruta" class="nav-link"
+              :active-class="padre.ruta === '/' ? '' : 'active'" exact-active-class="active"
+              @click="menuAbierto = false"
+            >
+              <component :is="iconoDe(padre.icono)" /> {{ padre.nombre }}
+            </RouterLink>
+          </template>
         </template>
+
+        <div v-if="auth.errorMenu" class="menu-error" role="alert">
+          <span>{{ auth.errorMenu }}</span>
+          <button class="btn btn-ghost btn-sm" type="button" @click="auth.reintentarMenu()">Reintentar</button>
+        </div>
       </nav>
 
       <div class="sidebar-foot">
@@ -85,17 +70,25 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import {
   IconDash, IconBox, IconTag, IconPeople, IconCart, IconReceipt, IconUser, IconShield
 } from '../components/icons';
+import { iconoValido, destinoSiYaNoPermitida } from '../utils/menu';
 
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 const menuAbierto = ref(false);
+
+// El menú lo entrega el sistema central; solo se traduce el nombre del icono a su componente
+const iconos = {
+  dash: IconDash, box: IconBox, tag: IconTag, people: IconPeople,
+  cart: IconCart, receipt: IconReceipt, user: IconUser, shield: IconShield
+};
+const iconoDe = (nombre) => iconos[iconoValido(nombre)];
 
 const iniciales = computed(() => {
   const nombre = auth.usuario?.nombre || '?';
@@ -105,7 +98,6 @@ const iniciales = computed(() => {
 const titulos = {
   dashboard: 'Panel principal',
   perfil: 'Mi perfil',
-  usuarios: 'Usuarios',
   productos: 'Productos',
   categorias: 'Categorías',
   proveedores: 'Proveedores y clientes',
@@ -119,13 +111,42 @@ const titulos = {
   scraping: 'Scraping',
   'scraping-comparaciones': 'Comparación de precios',
   'scraping-detalle': 'Detalle del job de scraping',
-  integraciones: 'API pública'
+  integraciones: 'API pública',
+  'seguridad-logs': 'Logs de acceso',
+  'seguridad-dashboard': 'Dashboard de accesos',
+  'seguridad-accesos': 'Administración de accesos',
+  'seguridad-usuarios-nuevo': 'Crear usuario',
+  'seguridad-menus': 'Opciones de menú',
+  clientes: 'Clientes',
+  'clientes-nuevo': 'Nuevo cliente',
+  'clientes-ventas': 'Compras y puntos por cliente',
+  'fidelizacion-puntos': 'Puntos por cliente',
+  'fidelizacion-reglas': 'Reglas de puntos'
 };
 const tituloPagina = computed(() => titulos[route.name] || 'Librería Rocío');
 
-function cerrarSesion() {
-  auth.logout();
-  router.push({ name: 'login' });
+// Si Seguridad cambia el menú de esta aplicación, se nota solo: se consulta cada minuto y al volver a la pestaña.
+// Si la pantalla actual ya no está permitida, se lleva a la persona a una que sí.
+const CADA_MS = 60000;
+let temporizador = null;
+async function actualizarMenu() {
+  if (!(await auth.refrescarMenu())) return;
+  const destino = destinoSiYaNoPermitida(auth.menu, route.meta, route.path);
+  if (destino) router.replace(destino);
+}
+const alVolver = () => { if (document.visibilityState === 'visible') actualizarMenu(); };
+onMounted(() => {
+  temporizador = setInterval(actualizarMenu, CADA_MS);
+  document.addEventListener('visibilitychange', alVolver);
+});
+onBeforeUnmount(() => {
+  clearInterval(temporizador);
+  document.removeEventListener('visibilitychange', alVolver);
+});
+
+// Cierra la sesión también en el sistema central y vuelve a su pantalla de acceso
+async function cerrarSesion() {
+  await auth.cerrarSesion();
 }
 </script>
 
@@ -224,6 +245,19 @@ function cerrarSesion() {
 
 .nav-link svg {
   flex-shrink: 0;
+}
+
+.menu-error {
+  margin: .9rem .3rem 0;
+  padding: .7rem;
+  border-radius: var(--radius-sm);
+  background: rgba(244, 225, 221, 0.12);
+  border: 1px solid rgba(244, 225, 221, 0.35);
+  color: #F4E1DD;
+  font-size: .8rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
 }
 
 .sidebar-foot {

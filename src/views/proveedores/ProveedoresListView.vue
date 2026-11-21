@@ -26,7 +26,7 @@
             <td><span class="badge" :class="p.estado ? 'badge-ok' : 'badge-off'">{{ p.estado ? 'Activo' : 'Inactivo' }}</span></td>
             <td style="text-align:right;">
               <button class="btn btn-ghost btn-sm" @click="abrirEditar(p)">Editar</button>
-              <button v-if="p.estado" class="btn btn-danger btn-sm" @click="desactivar(p)">Desactivar</button>
+              <button v-if="p.estado && auth.tieneRol('ALMACENERO')" class="btn btn-danger btn-sm" @click="desactivar(p)">Desactivar</button>
             </td>
           </tr>
         </tbody>
@@ -73,11 +73,13 @@
 import { onMounted, reactive, ref } from 'vue';
 import { proveedoresApi } from '../../api/proveedores';
 import { useNotificationStore } from '../../store/notifications';
+import { useAuthStore } from '../../store/auth';
 import ModalDialog from '../../components/ModalDialog.vue';
 import PaginationBar from '../../components/PaginationBar.vue';
 import EmptyState from '../../components/EmptyState.vue';
 
 const notify = useNotificationStore();
+const auth = useAuthStore();
 const personas = ref([]);
 const total = ref(0);
 const cargando = ref(true);

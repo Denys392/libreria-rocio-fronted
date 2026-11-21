@@ -21,6 +21,20 @@
           <span class="badge" :class="estadoBadge(venta.estado_sunat)">{{ venta.estado_sunat }}</span>
         </dd>
         <dt>IGV</dt><dd>{{ formatoMoneda(venta.igv, venta.moneda) }}</dd>
+        <template v-if="etiquetaEstadoAlmacen(venta.estado_almacen)">
+          <dt>Stock en Almacén</dt>
+          <dd>
+            <span class="badge" :class="claseEstadoAlmacen(venta.estado_almacen)">{{ etiquetaEstadoAlmacen(venta.estado_almacen) }}</span>
+            <button
+              v-if="venta.estado_almacen === 'PENDIENTE'"
+              class="btn btn-primary btn-sm"
+              style="margin-left: .6rem;"
+              :disabled="reintentando"
+              @click="reintentarAlmacen">
+              {{ reintentando ? 'Reintentando…' : 'Reintentar' }}
+            </button>
+          </dd>
+        </template>
       </dl>
 
       <div class="doc-actions">
@@ -69,6 +83,7 @@ import { ventasApi } from '../../api/ventas';
 import { documentosApi } from '../../api/documentos';
 import { useNotificationStore } from '../../store/notifications';
 import { formatoMoneda, formatoFecha } from '../../utils/format';
+import { etiquetaEstadoAlmacen, claseEstadoAlmacen, mensajeReintentoFallido } from '../../utils/ventas';
 
 const route = useRoute();
 const notify = useNotificationStore();
@@ -85,6 +100,20 @@ async function cargar() {
     const { data } = await ventasApi.obtener(route.params.id);
     venta.value = data.data;
   } catch { notify.error('No se pudo cargar la venta'); }
+}
+
+const reintentando = ref(false);
+async function reintentarAlmacen() {
+  reintentando.value = true;
+  try {
+    await ventasApi.reintentarAlmacen(route.params.id);
+    await cargar();
+    notify.success('Stock descontado en Almacén.');
+  } catch (err) {
+    notify.error(mensajeReintentoFallido(err));
+  } finally {
+    reintentando.value = false;
+  }
 }
 
 async function sincronizar() {

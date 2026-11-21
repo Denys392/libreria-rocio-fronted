@@ -78,6 +78,7 @@ import { proveedoresApi } from '../../api/proveedores';
 import { productosApi } from '../../api/productos';
 import { useNotificationStore } from '../../store/notifications';
 import { formatoMoneda } from '../../utils/format';
+import { avisoTrasRegistrar } from '../../utils/ventas';
 
 const notify = useNotificationStore();
 const router = useRouter();
@@ -120,7 +121,8 @@ async function registrar() {
   try {
     const payload = { ...cabecera, clienteId: cabecera.clienteId || null, items: items.value };
     const { data } = await ventasApi.registrar(payload);
-    notify.success('Venta registrada correctamente. Stock actualizado.');
+    const aviso = avisoTrasRegistrar(data.data);
+    notify.push(aviso.texto, aviso.tipo, aviso.duracion);
     router.push(`/ventas/${data.data.venta_id}`);
   } catch (err) {
     notify.error(err.response?.data?.message || 'No se pudo registrar la venta');

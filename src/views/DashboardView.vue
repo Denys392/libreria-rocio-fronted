@@ -8,28 +8,28 @@
       </div>
     </section>
 
-    <div class="kpi-grid">
-      <div class="kpi card">
+    <div v-if="puedeVentas || puedeCompras || auth.puede('/ventas/nueva') || auth.puede('/compras/nueva')" class="kpi-grid">
+      <div v-if="puedeVentas" class="kpi card">
         <p class="kpi-label">Ventas registradas</p>
         <p class="kpi-value">{{ cargando ? '—' : ventasTotal }}</p>
         <p class="kpi-foot">Total histórico: {{ formatoMoneda(ventasSuma) }}</p>
       </div>
-      <div class="kpi card">
+      <div v-if="puedeCompras" class="kpi card">
         <p class="kpi-label">Compras registradas</p>
         <p class="kpi-value">{{ cargando ? '—' : comprasTotal }}</p>
         <p class="kpi-foot">Total histórico: {{ formatoMoneda(comprasSuma) }}</p>
       </div>
-      <div class="kpi card">
+      <div v-if="auth.puede('/ventas/nueva') || auth.puede('/compras/nueva')" class="kpi card">
         <p class="kpi-label">Accesos rápidos</p>
         <div class="quick-links">
-          <RouterLink class="btn btn-gold btn-sm" to="/ventas/nueva">+ Nueva venta</RouterLink>
-          <RouterLink class="btn btn-ghost btn-sm" to="/compras/nueva">+ Nueva compra</RouterLink>
+          <RouterLink v-if="auth.puede('/ventas/nueva')" class="btn btn-gold btn-sm" to="/ventas/nueva">+ Nueva venta</RouterLink>
+          <RouterLink v-if="auth.puede('/compras/nueva')" class="btn btn-ghost btn-sm" to="/compras/nueva">+ Nueva compra</RouterLink>
         </div>
       </div>
     </div>
 
-    <div class="grid-2">
-      <section class="card table-card">
+    <div v-if="puedeVentas || puedeCompras" class="grid-2">
+      <section v-if="puedeVentas" class="card table-card">
         <header class="table-card-head">
           <h3>Últimas ventas</h3>
           <RouterLink to="/ventas" class="see-all">Ver todas →</RouterLink>
@@ -58,7 +58,7 @@
         </table>
       </section>
 
-      <section class="card table-card">
+      <section v-if="puedeCompras" class="card table-card">
         <header class="table-card-head">
           <h3>Últimas compras</h3>
           <RouterLink to="/compras" class="see-all">Ver todas →</RouterLink>
@@ -108,19 +108,28 @@ const ventasSuma = ref(0);
 const comprasTotal = ref(0);
 const comprasSuma = ref(0);
 
+// Cada rol ve solo lo que su menú permite (un VENDEDOR no tiene compras, un ALMACENERO no tiene ventas).
+// allSettled: si una de las dos consultas falla, la otra igual se muestra.
+const puedeVentas = computed(() => auth.puede('/ventas'));
+const puedeCompras = computed(() => auth.puede('/compras'));
+
 onMounted(async () => {
   try {
-    const [resVentas, resCompras] = await Promise.all([
-      ventasApi.historico({ page: 1, limit: 5 }),
-      comprasApi.historico({ page: 1, limit: 5 })
+    const [resVentas, resCompras] = await Promise.allSettled([
+      puedeVentas.value ? ventasApi.historico({ page: 1, limit: 5 }) : Promise.reject(new Error('sin permiso')),
+      puedeCompras.value ? comprasApi.historico({ page: 1, limit: 5 }) : Promise.reject(new Error('sin permiso'))
     ]);
-    ultimasVentas.value = resVentas.data.data.rows;
-    ventasTotal.value = resVentas.data.data.total;
-    ventasSuma.value = resVentas.data.data.sumaTotal;
 
-    ultimasCompras.value = resCompras.data.data.rows;
-    comprasTotal.value = resCompras.data.data.total;
-    comprasSuma.value = resCompras.data.data.sumaTotal;
+    if (resVentas.status === 'fulfilled') {
+      ultimasVentas.value = resVentas.value.data.data.rows;
+      ventasTotal.value = resVentas.value.data.data.total;
+      ventasSuma.value = resVentas.value.data.data.sumaTotal;
+    }
+    if (resCompras.status === 'fulfilled') {
+      ultimasCompras.value = resCompras.value.data.data.rows;
+      comprasTotal.value = resCompras.value.data.data.total;
+      comprasSuma.value = resCompras.value.data.data.sumaTotal;
+    }
   } finally {
     cargando.value = false;
   }
@@ -157,7 +166,7 @@ onMounted(async () => {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
   margin-bottom: 1.4rem;
 }
@@ -197,7 +206,7 @@ onMounted(async () => {
 
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 1.2rem;
 }
 

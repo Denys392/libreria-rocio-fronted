@@ -9,30 +9,17 @@
         </div>
       </div>
 
-      <h1 class="auth-heading">Iniciar sesión</h1>
-      <p class="auth-lead">Ingresa tus credenciales para continuar.</p>
+      <h1 class="auth-heading">Acceso al sistema</h1>
+      <p class="auth-lead">
+        El ingreso se hace con su correo corporativo en el sistema de seguridad,
+        con verificación en 2 pasos. Allí elegirá el rol con el que desea entrar.
+      </p>
 
-      <form @submit.prevent="onSubmit">
-        <div class="field">
-          <label for="email">Correo electrónico</label>
-          <input id="email" v-model.trim="email" type="email" required autocomplete="username" placeholder="tucorreo@libreria.com" />
-        </div>
-        <div class="field">
-          <label for="password">Contraseña</label>
-          <input id="password" v-model="password" type="password" required autocomplete="current-password" placeholder="••••••••" />
-        </div>
+      <p v-if="avisoSesion" class="aviso" role="status">Su sesión terminó. Ingrese de nuevo para continuar.</p>
 
-        <p v-if="error" class="hint-error" style="margin: -.4rem 0 1rem;">{{ error }}</p>
-
-        <button class="btn btn-primary" type="submit" style="width:100%;" :disabled="cargando">
-          {{ cargando ? 'Ingresando…' : 'Ingresar' }}
-        </button>
-      </form>
-
-      <div class="auth-links">
-        <RouterLink to="/recuperar-password">¿Olvidaste tu contraseña?</RouterLink>
-        <RouterLink to="/registro">Crear una cuenta</RouterLink>
-      </div>
+      <button class="btn btn-primary" type="button" style="width: 100%;" @click="irAlCentral">
+        Ingresar con el sistema de seguridad
+      </button>
     </div>
 
     <div class="auth-side">
@@ -44,33 +31,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useAuthStore } from '../../store/auth';
-import { useNotificationStore } from '../../store/notifications';
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
+import { CENTRAL_URL } from '../../config';
 
-const email = ref('');
-const password = ref('');
-const cargando = ref(false);
-const error = ref('');
-
-const auth = useAuthStore();
-const notify = useNotificationStore();
-const router = useRouter();
 const route = useRoute();
+const avisoSesion = computed(() => route.query.motivo === 'sesion');
 
-async function onSubmit() {
-  error.value = '';
-  cargando.value = true;
-  try {
-    await auth.login(email.value, password.value);
-    notify.success(`Bienvenido(a), ${auth.usuario?.nombre || ''}`);
-    router.push(route.query.redirect || { name: 'dashboard' });
-  } catch (err) {
-    error.value = err.response?.data?.message || 'No se pudo iniciar sesión. Verifica tus datos.';
-  } finally {
-    cargando.value = false;
-  }
+// El login ya no es un formulario: la clave y el 2FA los maneja el sistema de seguridad central
+function irAlCentral() {
+  window.location.assign(CENTRAL_URL);
 }
 </script>
 
@@ -82,10 +52,8 @@ async function onSubmit() {
 .brand-title { margin: 0; font-family: var(--font-display); font-size: 1.05rem; color: var(--color-forest-deep); }
 .brand-sub { margin: 0; font-size: .78rem; color: var(--color-ink-soft); }
 .auth-heading { font-size: 2rem; margin-bottom: .3rem; }
-.auth-lead { color: var(--color-ink-soft); margin: 0 0 1.6rem; }
-.auth-links { display: flex; justify-content: space-between; margin-top: 1.2rem; font-size: .85rem; }
-.auth-links a { color: var(--color-forest); text-decoration: none; font-weight: 600; }
-.auth-links a:hover { text-decoration: underline; }
+.auth-lead { color: var(--color-ink-soft); margin: 0 0 1.6rem; line-height: 1.5; }
+.aviso { background: #FBEEDA; color: #93610E; border-radius: var(--radius-sm); padding: .6rem .8rem; font-size: .88rem; margin: 0 0 1.2rem; }
 
 .auth-side {
   background: linear-gradient(160deg, var(--color-forest-deep), var(--color-forest) 60%, #33502F);

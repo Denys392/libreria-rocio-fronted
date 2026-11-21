@@ -7,5 +7,7 @@ export const ventasApi = {
   actualizarEstadoSunat: (id, payload) => http.patch(`/ventas/${id}/estado-sunat`, payload),
   obtenerProximoNumero: (tipoComprobante) => http.get(`/ventas/proximo-numero/${tipoComprobante}`),
   sincronizarSunat: (id) => http.post(`/ventas/${id}/sincronizar-sunat`),
-  reenviarSunat: (id) => http.post(`/ventas/${id}/reenviar-sunat`)
+  reenviarSunat: (id) => http.post(`/ventas/${id}/reenviar-sunat`),
+  // Si Almacén no confirmó el descuento del stock al vender, se reintenta (no descuenta dos veces)
+  reintentarAlmacen: (id) => http.post(`/ventas/${id}/reintentar-almacen`)
 };

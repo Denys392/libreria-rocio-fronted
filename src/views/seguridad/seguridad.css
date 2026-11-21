@@ -1,0 +1,16 @@
+/* Estilos comunes de las pantallas de Seguridad (prefijo seg- para no chocar con el resto) */
+.seg-toolbar { display: flex; align-items: flex-end; gap: .7rem; padding: .9rem 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.seg-toolbar label { display: flex; flex-direction: column; gap: .2rem; font-size: .72rem; font-weight: 600; color: var(--color-ink-soft); text-transform: uppercase; letter-spacing: .04em; }
+.seg-toolbar input, .seg-toolbar select { padding: .5rem .65rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface-raised); color: var(--color-ink); font-size: .88rem; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.seg-spacer { flex: 1; }
+.seg-tabla { overflow-x: auto; padding: 0; }
+.seg-tabla table { width: 100%; font-size: .88rem; }
+.seg-tabla th { background: var(--color-surface-dimmed); font-weight: 600; padding: .7rem .6rem; text-align: left; white-space: nowrap; }
+.seg-tabla td { padding: .6rem .6rem; border-bottom: 1px solid var(--color-border); }
+.seg-tabla tbody tr:hover { background: var(--color-surface-raised); }
+.seg-mono { font-family: var(--font-mono); font-size: .78rem; }
+.seg-small { font-size: .8rem; }
+.seg-detalle { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-ink-soft); font-size: .8rem; }
+.seg-error { background: var(--color-wine-soft); color: var(--color-wine); border-radius: var(--radius-sm); padding: .7rem .9rem; margin-bottom: 1rem; font-size: .9rem; }
+.seg-badge-aviso { background: #FBEEDA; color: #93610E; }
+.seg-badge-info { background: #E3ECF6; color: #2B5580; }

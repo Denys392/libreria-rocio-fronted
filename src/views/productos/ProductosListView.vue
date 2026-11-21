@@ -12,7 +12,7 @@
         <option value="0">Inactivos</option>
       </select>
       <div class="spacer"></div>
-      <button class="btn btn-gold" @click="abrirCrear">+ Nuevo producto</button>
+      <button v-if="auth.tieneRol('ALMACENERO')" class="btn btn-gold" @click="abrirCrear">+ Nuevo producto</button>
     </div>
 
     <section class="card">
@@ -35,8 +35,8 @@
             </td>
             <td><span class="badge" :class="p.estado ? 'badge-ok' : 'badge-off'">{{ p.estado ? 'Activo' : 'Inactivo' }}</span></td>
             <td style="text-align:right;">
-              <button class="btn btn-ghost btn-sm" @click="abrirEditar(p)">Editar</button>
-              <button v-if="p.estado" class="btn btn-danger btn-sm" @click="desactivar(p)">Desactivar</button>
+              <button v-if="auth.tieneRol('ALMACENERO')" class="btn btn-ghost btn-sm" @click="abrirEditar(p)">Editar</button>
+              <button v-if="p.estado && auth.tieneRol('ALMACENERO')" class="btn btn-danger btn-sm" @click="desactivar(p)">Desactivar</button>
             </td>
           </tr>
         </tbody>
@@ -76,12 +76,14 @@
 import { onMounted, reactive, ref } from 'vue';
 import { productosApi } from '../../api/productos';
 import { useNotificationStore } from '../../store/notifications';
+import { useAuthStore } from '../../store/auth';
 import { formatoMoneda } from '../../utils/format';
 import ModalDialog from '../../components/ModalDialog.vue';
 import PaginationBar from '../../components/PaginationBar.vue';
 import EmptyState from '../../components/EmptyState.vue';
 
 const notify = useNotificationStore();
+const auth = useAuthStore();
 const productos = ref([]);
 const categorias = ref([]);
 const total = ref(0);

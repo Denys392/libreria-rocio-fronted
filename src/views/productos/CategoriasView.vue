@@ -3,7 +3,7 @@
     <div class="toolbar card">
       <p style="margin:0; color: var(--color-ink-soft); font-size:.88rem;">Organiza el catálogo de productos por categorías.</p>
       <div class="spacer"></div>
-      <button class="btn btn-gold" @click="abrirCrear">+ Nueva categoría</button>
+      <button v-if="auth.tieneRol('ALMACENERO')" class="btn btn-gold" @click="abrirCrear">+ Nueva categoría</button>
     </div>
 
     <section class="card">
@@ -15,7 +15,7 @@
             <td>{{ c.nombre }}</td>
             <td>{{ c.descripcion || '—' }}</td>
             <td><span class="badge" :class="c.estado ? 'badge-ok' : 'badge-off'">{{ c.estado ? 'Activa' : 'Inactiva' }}</span></td>
-            <td style="text-align:right;"><button class="btn btn-ghost btn-sm" @click="abrirEditar(c)">Editar</button></td>
+            <td style="text-align:right;"><button v-if="auth.tieneRol('ALMACENERO')" class="btn btn-ghost btn-sm" @click="abrirEditar(c)">Editar</button></td>
           </tr>
         </tbody>
       </table>
@@ -42,10 +42,12 @@
 import { onMounted, reactive, ref } from 'vue';
 import { productosApi } from '../../api/productos';
 import { useNotificationStore } from '../../store/notifications';
+import { useAuthStore } from '../../store/auth';
 import ModalDialog from '../../components/ModalDialog.vue';
 import EmptyState from '../../components/EmptyState.vue';
 
 const notify = useNotificationStore();
+const auth = useAuthStore();
 const categorias = ref([]);
 const cargando = ref(true);
 const guardando = ref(false);
